@@ -2,13 +2,13 @@ import express from "express";
 import makeWASocket, { DisconnectReason, useSingleFileAuthState } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 
-const app = express();
 const PORT = process.env.PORT || 8080;
 const { state, saveState } = useSingleFileAuthState("./auth_info.json");
 
+const app = express();
 let sock;
 
-// Endpoint de verificação de saúde (para Railway)
+// Endpoint de verificação (para health check)
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "✅ Baileys Server is running" });
 });
@@ -16,9 +16,10 @@ app.get("/health", (req, res) => {
 // Inicia o servidor HTTP primeiro
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server is running and listening on port ${PORT}`);
-  startBaileys(); // inicia o Baileys depois que o servidor HTTP estiver ativo
+  startBaileys(); // inicia o Baileys só depois do servidor HTTP estar ativo
 });
 
+// Função principal
 async function startBaileys() {
   try {
     sock = makeWASocket({
@@ -33,8 +34,8 @@ async function startBaileys() {
 
       if (connection === "close") {
         const shouldReconnect =
-          (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log("🔁 Conexão fechada, tentando reconectar...");
+          lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+        console.log("⚠️ Conexão fechada, tentando reconectar...");
         if (shouldReconnect) startBaileys();
       } else if (connection === "open") {
         console.log("✅ Conectado ao WhatsApp!");

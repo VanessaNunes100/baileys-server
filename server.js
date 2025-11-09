@@ -1,40 +1,46 @@
 import express from "express";
-import makeWASocket from "@whiskeysockets/baileys";
+import makeWASocket, { DisconnectReason, useSingleFileAuthState } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
-import { useSingleFileAuthState } from "@whiskeysockets/baileys";
 
-const { state, saveState } = useSingleFileAuthState("./auth_info.json");
 const app = express();
+const PORT = process.env.PORT || 8080;
+const { state, saveState } = useSingleFileAuthState("./auth_info.json");
 
 let sock;
 
-async function startBaileys() {
-  sock = makeWASocket({
-    auth: state,
-    printQRInTerminal: true,
-  });
-
-  sock.ev.on("creds.update", saveState);
-  sock.ev.on("connection.update", (update) => {
-    const { connection, lastDisconnect } = update;
-    if (connection === "close") {
-      const shouldReconnect =
-        lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      if (shouldReconnect) startBaileys();
-    } else if (connection === "open") {
-      console.log("✅ Conectado ao WhatsApp!");
-    }
-  });
-}
-
-startBaileys();
-
-// endpoint para verificar se o servidor está rodando
+// Endpoint de verificação de saúde (para Railway)
 app.get("/health", (req, res) => {
-  res.json({ status: "Baileys Server is running ✅" });
+  res.status(200).json({ status: "✅ Baileys Server is running" });
 });
 
-// inicia o servidor HTTP na porta 8080 (necessário para o Railway)
-app.listen(process.env.PORT || 8080, () => {
-  console.log("🚀 Baileys server listening on port 8080");
+// Inicia o servidor HTTP primeiro
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server is running and listening on port ${PORT}`);
+  startBaileys(); // inicia o Baileys depois que o servidor HTTP estiver ativo
 });
+
+async function startBaileys() {
+  try {
+    sock = makeWASocket({
+      auth: state,
+      printQRInTerminal: true,
+    });
+
+    sock.ev.on("creds.update", saveState);
+
+    sock.ev.on("connection.update", (update) => {
+      const { connection, lastDisconnect } = update;
+
+      if (connection === "close") {
+        const shouldReconnect =
+          (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+        console.log("🔁 Conexão fechada, tentando reconectar...");
+        if (shouldReconnect) startBaileys();
+      } else if (connection === "open") {
+        console.log("✅ Conectado ao WhatsApp!");
+      }
+    });
+  } catch (error) {
+    console.error("❌ Erro ao iniciar Baileys:", error);
+  }
+}

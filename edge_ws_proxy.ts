@@ -1,6 +1,6 @@
 // edge_ws_proxy.ts (Deno Deploy / Edge Function)
 // Env required: BAILEYS_SERVER_WS (ex: wss://vanevu.web-conversa.top/ws)
-const BAILEYS_SERVER_WS = Deno.env.get("BAILEYS_SERVER_WS") || "wss://vanevu.web-conversa.top/ws";
+const BAILEYS_SERVER_WS = Deno.env.get("BAILEYS_SERVER_WS") || "ws://173.249.47.246:8080";
 
 addEventListener("fetch", (event) => {
   event.respondWith(handle(event.request));
